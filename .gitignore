@@ -1,0 +1,33 @@
+# Temporary and intermediate files
+.tmp/
+
+# Environment and secrets
+.env
+credentials.json
+token.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Node / Next.js / Vite
+node_modules/
+.next/
+frontend/dist/
+frontend/node_modules/
+
+# Docker volumes
+neo4j_data/
+
+# Python test/coverage artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Python virtual environments
+venv/
+.venv/
+
+# Claude agent files (internal orchestration tooling)
+.claude/
+CLAUDE.md
