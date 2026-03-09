@@ -1,0 +1,154 @@
+# sample-k8s.yaml — InfraGraph test fixture (multi-document YAML)
+# Exercises all 4 Kubernetes dependency inference rules.
+#
+# Expected resources (7):
+#   ConfigMap/default/app-config
+#   Secret/default/app-secrets
+#   Deployment/default/app
+#   Service/default/app
+#   Ingress/default/main
+#   Deployment/workers/worker      ← different namespace (no cross-namespace edges expected)
+#   ServiceMonitor/default/app-monitor  ← unknown kind (parsed as node, no edges)
+#
+# Expected edges (4 after deduplication):
+#   Service/default/app      → Deployment/default/app        (Rule 1: selector match)
+#   Deployment/default/app   → ConfigMap/default/app-config  (Rule 2: envFrom + volume → deduped to 1)
+#   Deployment/default/app   → Secret/default/app-secrets    (Rule 3: envFrom)
+#   Ingress/default/main     → Service/default/app           (Rule 4: backend service)
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: default
+data:
+  APP_ENV: production
+  LOG_LEVEL: info
+  DATABASE_HOST: postgres.default.svc.cluster.local
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: default
+type: Opaque
+data:
+  DATABASE_PASSWORD: c2VjcmV0cGFzcw==
+  API_KEY: YXBpa2V5MTIz
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: default
+  labels:
+    app: infragraph-app
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: infragraph-app
+  template:
+    metadata:
+      labels:
+        app: infragraph-app
+        tier: frontend
+    spec:
+      containers:
+        - name: app
+          image: infragraph/app:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: app-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: default
+spec:
+  selector:
+    app: infragraph-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: infragraph.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app
+                port:
+                  number: 80
+
+---
+# Deployment in a DIFFERENT namespace — should produce NO edges to default namespace resources
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: workers
+  labels:
+    app: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: infragraph/worker:latest
+
+---
+# Unknown kind — should be parsed as a Resource node but produce no edges
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: app-monitor
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: infragraph-app
+  endpoints:
+    - port: metrics
