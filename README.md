@@ -1,10 +1,12 @@
 # InfraGraph — Infrastructure Dependency Visualizer
 
-![CI](https://github.com/<your-org>/InfraGraph/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/Spador/InfraGraph/actions/workflows/ci.yml/badge.svg)](https://github.com/Spador/InfraGraph/actions/workflows/ci.yml)
 
 Upload your Terraform and Kubernetes files and instantly see a live, interactive dependency graph — all running locally.
 
 InfraGraph parses `.tf` and `.yaml` files, extracts every resource and its dependencies, stores the graph in Neo4j, and renders it as a force-directed SVG graph in the browser. Nodes are sized by connectivity, colored by resource type, and fully interactive — click to inspect, drag to rearrange, filter by type.
+
+![InfraGraph UI](docs/screenshots/preview.png)
 
 ---
 
